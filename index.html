@@ -23,16 +23,21 @@ label.check input{width:22px;height:22px;flex:none;margin:0}
 button{width:100%;margin-top:22px;padding:16px;font-size:1.1rem;font-weight:700;border:0;border-radius:10px;background:#1f6feb;color:#fff}
 .priv{margin:14px 0 0;font-size:.8rem;color:#666;line-height:1.4}
 .msg{display:none;margin-top:18px;padding:14px;border-radius:10px;line-height:1.4}
-.ok{background:#e6f6ea;color:#185c2b}
 .wait{background:#fff6e0;color:#7a5200}
-#status{display:block;margin-top:6px;font-size:.85rem;opacity:.85}
-#outro{display:none;margin-top:14px;background:#fff;color:#1f6feb;border:1px solid #1f6feb}
+#obrigado{display:none;margin-top:32px;text-align:center}
+#obrigado .icone{font-size:3rem;line-height:1}
+#obrigado h2{font-size:1.5rem;margin:12px 0 8px}
+#obrigado p{margin:0 0 20px;color:#444;line-height:1.45}
+#status{display:inline-block;padding:10px 16px;border-radius:999px;font-weight:600;font-size:.95rem;background:#e8f0fe;color:#1a3d7c}
+#status.ok{background:#e6f6ea;color:#185c2b}
 </style>
 </head>
 <body>
 <main>
-<h1>Cadastre-se</h1>
-<p class="sub">Deixe seu contato que a gente fala com você.</p>
+<div id="topo">
+  <h1>Cadastre-se</h1>
+  <p class="sub">Deixe seu contato que a gente fala com você.</p>
+</div>
 
 <form id="f">
   <label for="nome">Nome Completo (social, se houver)</label>
@@ -60,13 +65,15 @@ button{width:100%;margin-top:22px;padding:16px;font-size:1.1rem;font-weight:700;
   <p class="priv">Seus dados são usados apenas pela EscapeCore para entrar em contato com você e não são compartilhados. Você pode pedir a remoção a qualquer momento.</p>
 </form>
 
-<div id="ok" class="msg ok">✅ <b>Cadastro recebido!</b> Obrigado.
-  <span id="status">Enviando…</span>
+<div id="obrigado">
+  <div class="icone">🗝️</div>
+  <h2 id="tituloObrigado">Obrigado pela inscrição!</h2>
+  <p>Que bom ter você com a gente. A EscapeCore vai entrar em contato pelo WhatsApp.</p>
+  <span id="status">⏳ Enviando seus dados…</span>
 </div>
 <div id="wait" class="msg wait">
-  📶 Conexão fraca. Seu cadastro ficou salvo neste celular e será enviado sozinho assim que o sinal melhorar. <b>Deixe esta página aberta</b> por mais alguns instantes.
+  📶 Conexão fraca. Seus dados ficaram salvos neste celular e serão enviados sozinhos assim que o sinal melhorar. <b>Deixe esta página aberta</b> por mais alguns instantes.
 </div>
-<button id="outro" type="button">Cadastrar outra pessoa</button>
 </main>
 
 <script>
@@ -77,10 +84,14 @@ var TEMPO_LIMITE = 45000; // ms para desistir de uma tentativa e tentar de novo
 
 var KEY = "fila_cadastros";
 var f = document.getElementById("f");
-var okBox = document.getElementById("ok");
+var obrigado = document.getElementById("obrigado");
 var waitBox = document.getElementById("wait");
 var statusEl = document.getElementById("status");
-var outro = document.getElementById("outro");
+
+function mostrarStatus(texto, confirmado){
+  statusEl.textContent = texto;
+  statusEl.className = confirmado ? "ok" : "";
+}
 
 var memoria = []; // reserva caso o navegador bloqueie o armazenamento
 function fila(){ try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ return memoria; } }
@@ -122,11 +133,11 @@ function esvaziarFila(){
     falhas = 0;
     if (fila().length) return esvaziarFila();
     waitBox.style.display = "none";
-    statusEl.textContent = "✓ Confirmado";
+    mostrarStatus("✅ Dados recebidos com sucesso", true);
   }).catch(function(){
     enviando = false;
     falhas++;
-    if (falhas >= 2) { waitBox.style.display = "block"; statusEl.textContent = "Aguardando sinal…"; }
+    if (falhas >= 2) { waitBox.style.display = "block"; mostrarStatus("📶 Aguardando sinal para enviar…", false); }
     setTimeout(esvaziarFila, Math.min(2000 * falhas, 10000));
   });
 }
@@ -143,21 +154,18 @@ f.addEventListener("submit", function(ev){
   };
   var q = fila(); q.push(item); salvar(q);
 
-  // Mostra a confirmação na hora; o envio segue em segundo plano
+  // Agradece na hora; o envio segue em segundo plano e o status mostra quando confirmar
+  var primeiroNome = item.nome.split(/\s+/)[0];
+  document.getElementById("tituloObrigado").textContent =
+    primeiroNome ? "Obrigado, " + primeiroNome + "!" : "Obrigado pela inscrição!";
   f.reset();
+  document.getElementById("topo").style.display = "none";
   f.style.display = "none";
-  okBox.style.display = "block";
-  outro.style.display = "block";
-  statusEl.textContent = "Enviando…";
+  obrigado.style.display = "block";
+  mostrarStatus("⏳ Enviando seus dados…", false);
+  window.scrollTo(0, 0);
   falhas = 0;
   esvaziarFila();
-});
-
-outro.addEventListener("click", function(){
-  okBox.style.display = "none";
-  outro.style.display = "none";
-  f.style.display = "block";
-  window.scrollTo(0, 0);
 });
 
 // Tenta reenviar quando o sinal volta, quando a pessoa volta para a aba e a cada 5 s
