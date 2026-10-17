@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
 <title>Cadastro EscapeCore</title>
+<link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://script.googleusercontent.com">
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f4f4f6;color:#1a1a1a}
@@ -20,8 +23,8 @@ button{width:100%;margin-top:22px;padding:16px;font-size:1.1rem;font-weight:700;
 .priv{margin:14px 0 0;font-size:.8rem;color:#666;line-height:1.4}
 .msg{display:none;margin-top:18px;padding:14px;border-radius:10px;line-height:1.4}
 .ok{background:#e6f6ea;color:#185c2b}
-.sending{background:#e8f0fe;color:#1a3d7c}
 .wait{background:#fff6e0;color:#7a5200}
+#status{display:block;margin-top:6px;font-size:.85rem;opacity:.85}
 #outro{display:none;margin-top:14px;background:#fff;color:#1f6feb;border:1px solid #1f6feb}
 </style>
 </head>
@@ -56,8 +59,9 @@ button{width:100%;margin-top:22px;padding:16px;font-size:1.1rem;font-weight:700;
   <p class="priv">Seus dados são usados apenas pela EscapeCore para entrar em contato com você e não são compartilhados. Você pode pedir a remoção a qualquer momento.</p>
 </form>
 
-<div id="sending" class="msg sending">⏳ Enviando seu cadastro…</div>
-<div id="ok" class="msg ok">✅ Cadastro enviado! Obrigado.</div>
+<div id="ok" class="msg ok">✅ <b>Cadastro recebido!</b> Obrigado.
+  <span id="status">Enviando…</span>
+</div>
 <div id="wait" class="msg wait">
   📶 Conexão fraca. Seu cadastro ficou salvo neste celular e será enviado sozinho assim que o sinal melhorar. <b>Deixe esta página aberta</b> por mais alguns instantes.
 </div>
@@ -67,33 +71,32 @@ button{width:100%;margin-top:22px;padding:16px;font-size:1.1rem;font-weight:700;
 <script>
 // ====== CONFIGURE AQUI ======
 var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxFoDq9astVP4G6dFDV0lY6PWk-tctqKp7hlTh0StCjYcGS5CdBF199XIlLv_WtIyW7/exec";
-var TEMPO_LIMITE = 20000; // ms para desistir de uma tentativa e tentar de novo
+var TEMPO_LIMITE = 25000; // ms para desistir de uma tentativa e tentar de novo
 // ============================
 
 var KEY = "fila_cadastros";
 var f = document.getElementById("f");
+var okBox = document.getElementById("ok");
+var waitBox = document.getElementById("wait");
+var statusEl = document.getElementById("status");
 var outro = document.getElementById("outro");
 
-function fila(){ try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ return memoria; } }
 var memoria = []; // reserva caso o navegador bloqueie o armazenamento
+function fila(){ try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ return memoria; } }
 function salvar(q){ memoria = q; try{ localStorage.setItem(KEY, JSON.stringify(q)); }catch(e){} }
 
-function mostrar(id){
-  ["sending", "ok", "wait"].forEach(function(m){
-    document.getElementById(m).style.display = m === id ? "block" : "none";
-  });
-  outro.style.display = id === "ok" ? "block" : "none";
-}
+// Acorda o servidor do Google enquanto a pessoa preenche (deixa o envio mais rápido)
+try { fetch(SCRIPT_URL, { method: "GET", mode: "no-cors", cache: "no-store" }).catch(function(){}); } catch(e) {}
 
-// Só considera enviado quando a planilha responde "ok"
+// keepalive: o navegador termina o envio mesmo se a pessoa fechar a página.
+// Só considera enviado quando a planilha responde "ok".
 function enviar(item){
   var ctrl = window.AbortController ? new AbortController() : null;
   var timer = setTimeout(function(){ if (ctrl) ctrl.abort(); }, TEMPO_LIMITE);
-  return fetch(SCRIPT_URL, {
-    method: "POST",
-    body: new URLSearchParams(item),
-    signal: ctrl ? ctrl.signal : undefined
-  }).then(function(r){ return r.text(); })
+  var opts = { method: "POST", body: new URLSearchParams(item), keepalive: true };
+  if (ctrl) opts.signal = ctrl.signal;
+  return fetch(SCRIPT_URL, opts)
+    .then(function(r){ return r.text(); })
     .then(function(t){
       clearTimeout(timer);
       if (t.trim() !== "ok") throw new Error(t);
@@ -111,13 +114,14 @@ function esvaziarFila(){
     salvar(fila().filter(function(i){ return i.id !== item.id; }));
     enviando = false;
     falhas = 0;
-    if (fila().length) esvaziarFila(); else mostrar("ok");
+    if (fila().length) return esvaziarFila();
+    waitBox.style.display = "none";
+    statusEl.textContent = "✓ Confirmado";
   }).catch(function(){
     enviando = false;
     falhas++;
-    // Na primeira falha ainda mostra "enviando"; depois avisa que ficou salvo
-    if (falhas >= 2) mostrar("wait");
-    setTimeout(esvaziarFila, Math.min(3000 * falhas, 15000));
+    if (falhas >= 2) { waitBox.style.display = "block"; statusEl.textContent = "Aguardando sinal…"; }
+    setTimeout(esvaziarFila, Math.min(2000 * falhas, 10000));
   });
 }
 
@@ -133,14 +137,19 @@ f.addEventListener("submit", function(ev){
   };
   var q = fila(); q.push(item); salvar(q);
 
+  // Mostra a confirmação na hora; o envio segue em segundo plano
   f.reset();
   f.style.display = "none";
-  mostrar("sending");
+  okBox.style.display = "block";
+  outro.style.display = "block";
+  statusEl.textContent = "Enviando…";
+  falhas = 0;
   esvaziarFila();
 });
 
 outro.addEventListener("click", function(){
-  mostrar(null);
+  okBox.style.display = "none";
+  outro.style.display = "none";
   f.style.display = "block";
   window.scrollTo(0, 0);
 });
@@ -149,7 +158,7 @@ outro.addEventListener("click", function(){
 window.addEventListener("online", esvaziarFila);
 document.addEventListener("visibilitychange", function(){ if (!document.hidden) esvaziarFila(); });
 setInterval(esvaziarFila, 5000);
-if (fila().length){ f.style.display = "none"; mostrar("wait"); esvaziarFila(); }
+if (fila().length){ waitBox.style.display = "block"; esvaziarFila(); }
 </script>
 </body>
 </html>
