@@ -86,8 +86,13 @@ var memoria = []; // reserva caso o navegador bloqueie o armazenamento
 function fila(){ try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ return memoria; } }
 function salvar(q){ memoria = q; try{ localStorage.setItem(KEY, JSON.stringify(q)); }catch(e){} }
 
-// Acorda o servidor do Google enquanto a pessoa preenche (deixa o envio mais rápido)
-try { fetch(SCRIPT_URL, { method: "GET", mode: "no-cors", cache: "no-store" }).catch(function(){}); } catch(e) {}
+// Acorda o servidor do Google enquanto a pessoa preenche (deixa o envio mais rápido).
+// Só depois que a página terminou de carregar, para não atrasar a abertura.
+function aquecer(){
+  try { fetch(SCRIPT_URL, { method: "GET", mode: "no-cors", cache: "no-store" }).catch(function(){}); } catch(e) {}
+}
+if (document.readyState === "complete") setTimeout(aquecer, 0);
+else window.addEventListener("load", function(){ setTimeout(aquecer, 0); });
 
 // keepalive: o navegador termina o envio mesmo se a pessoa fechar a página.
 // Só considera enviado quando a planilha responde "ok".
