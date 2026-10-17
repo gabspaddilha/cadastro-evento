@@ -13,6 +13,8 @@ h1{font-size:1.4rem;margin:0 0 4px}
 p.sub{margin:0 0 20px;color:#555}
 label{display:block;font-weight:600;margin:14px 0 6px}
 input,select{width:100%;padding:14px;font-size:1rem;border:1px solid #ccc;border-radius:10px;background:#fff}
+label.check{display:flex;gap:10px;align-items:flex-start;font-weight:400;margin-top:18px;line-height:1.35}
+label.check input{width:22px;height:22px;flex:none;margin:0}
 button{width:100%;margin-top:22px;padding:16px;font-size:1.1rem;font-weight:700;border:0;border-radius:10px;background:#1f6feb;color:#fff}
 button:disabled{opacity:.6}
 .msg{display:none;margin-top:18px;padding:14px;border-radius:10px}
@@ -35,13 +37,10 @@ button:disabled{opacity:.6}
   <label for="email">E-mail (opcional)</label>
   <input id="email" name="email" type="email" autocomplete="email">
 
-  <label for="interesse">Tenho interesse em</label>
-  <select id="interesse" name="interesse">
-    <option>Conhecer os produtos</option>
-    <option>Receber uma proposta</option>
-    <option>Ser revendedor / parceiro</option>
-    <option>Outro</option>
-  </select>
+  <label class="check">
+    <input type="checkbox" id="aceite" name="aceite">
+    <span>Aceito receber informações da EscapeCore: novidades das salas, projetos, produção de artefatos e muito mais.</span>
+  </label>
 
   <button id="btn">Enviar cadastro</button>
 </form>
@@ -100,7 +99,7 @@ f.addEventListener("submit", function(ev){
     nome: f.nome.value.trim(),
     whatsapp: f.whatsapp.value.trim(),
     email: f.email.value.trim(),
-    interesse: f.interesse.value
+    aceita_novidades: f.aceite.checked ? "sim" : "não"
   };
   var q = fila(); q.push(item); salvar(q);
 
