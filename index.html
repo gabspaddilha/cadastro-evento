@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Cadastro</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f4f4f6;color:#1a1a1a}
+main{max-width:420px;margin:0 auto;padding:24px 16px}
+h1{font-size:1.4rem;margin:0 0 4px}
+p.sub{margin:0 0 20px;color:#555}
+label{display:block;font-weight:600;margin:14px 0 6px}
+input,select{width:100%;padding:14px;font-size:1rem;border:1px solid #ccc;border-radius:10px;background:#fff}
+button{width:100%;margin-top:22px;padding:16px;font-size:1.1rem;font-weight:700;border:0;border-radius:10px;background:#1f6feb;color:#fff}
+button:disabled{opacity:.6}
+.msg{display:none;margin-top:18px;padding:14px;border-radius:10px}
+.ok{background:#e6f6ea;color:#185c2b}
+.wait{background:#fff6e0;color:#7a5200}
+</style>
+</head>
+<body>
+<main>
+<h1>Cadastre-se</h1>
+<p class="sub">Deixe seu contato que a gente fala com você.</p>
+
+<form id="f">
+  <label for="nome">Nome</label>
+  <input id="nome" name="nome" required autocomplete="name">
+
+  <label for="whatsapp">WhatsApp</label>
+  <input id="whatsapp" name="whatsapp" type="tel" required autocomplete="tel" placeholder="(11) 90000-0000">
+
+  <label for="email">E-mail (opcional)</label>
+  <input id="email" name="email" type="email" autocomplete="email">
+
+  <label for="interesse">Tenho interesse em</label>
+  <select id="interesse" name="interesse">
+    <option>Conhecer os produtos</option>
+    <option>Receber uma proposta</option>
+    <option>Ser revendedor / parceiro</option>
+    <option>Outro</option>
+  </select>
+
+  <button id="btn">Enviar cadastro</button>
+</form>
+
+<div id="ok" class="msg ok">✅ Cadastro enviado! Obrigado.</div>
+<div id="wait" class="msg wait">
+  📶 Sem sinal agora. Seu cadastro ficou salvo e será enviado sozinho quando a conexão voltar. <b>Deixe esta página aberta.</b>
+</div>
+</main>
+
+<script>
+// ====== CONFIGURE AQUI ======
+var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxFoDq9astVP4G6dFDV0lY6PWk-tctqKp7hlTh0StCjYcGS5CdBF199XIlLv_WtIyW7/exec";
+// ============================
+
+var KEY = "fila_cadastros";
+var f = document.getElementById("f");
+
+function fila(){ try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ return []; } }
+function salvar(q){ try{ localStorage.setItem(KEY, JSON.stringify(q)); }catch(e){} }
+
+function mostrar(id){
+  document.getElementById("ok").style.display = id === "ok" ? "block" : "none";
+  document.getElementById("wait").style.display = id === "wait" ? "block" : "none";
+}
+
+function enviar(item){
+  return fetch(SCRIPT_URL, {
+    method: "POST",
+    mode: "no-cors",
+    body: new URLSearchParams(item)
+  });
+}
+
+var enviando = false;
+function esvaziarFila(){
+  var q = fila();
+  if (enviando || !q.length) return;
+  enviando = true;
+  var item = q[0];
+  enviar(item).then(function(){
+    salvar(fila().filter(function(i){ return i.id !== item.id; }));
+    enviando = false;
+    if (fila().length) esvaziarFila(); else mostrar("ok");
+  }).catch(function(){
+    enviando = false;
+    mostrar("wait");
+  });
+}
+
+f.addEventListener("submit", function(ev){
+  ev.preventDefault();
+  var item = {
+    id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+    data: new Date().toLocaleString("pt-BR"),
+    nome: f.nome.value.trim(),
+    whatsapp: f.whatsapp.value.trim(),
+    email: f.email.value.trim(),
+    interesse: f.interesse.value
+  };
+  var q = fila(); q.push(item); salvar(q);
+
+  f.reset();
+  f.style.display = "none";
+  esvaziarFila();
+});
+
+// Tenta reenviar sempre que o sinal voltar, ao abrir a página e a cada 5 s
+window.addEventListener("online", esvaziarFila);
+setInterval(esvaziarFila, 5000);
+if (fila().length){ f.style.display = "none"; mostrar("wait"); esvaziarFila(); }
+</script>
+</body>
+</html>
